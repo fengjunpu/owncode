@@ -22,7 +22,7 @@ int delete_timeout_pic(char* first_path,char *second_path);
 int check_path();
 int delete_file(const char *file_id, char *storage_ip);
 int dfs_init(const int proccess_index, const char *conf_filename);
-int delete_pic_from_fastdfs(char *pic_path,char *first_path);
+int delete_pic_from_fastdfs(char *pic_path,char *first_path,char *second_path);
 void dfs_destroy();
 int check_pic_redis(const char *fsdf_path,char *pic_file);
 int check_file_time(char *pic_file);
@@ -257,18 +257,21 @@ int check_pic_path(char* first_path,char *second_path)
 		return 0;
 	}
 	char *temp_path = second_path;
-	int i = 0;
+	int i = 0; 
+		//0;
 	while(NULL != (temp_path = strstr(second_path,"\n")))
 	{
 		if(i == 0)
 		{
-			sleep(10);
+			sleep(5);
 		}
 		printf("second dir: %s\n",second_path);
 		++i;
 		*temp_path = '\0';
 		char commond[256] = {0,};
-		sprintf(commond,"find %s/%s/%s -type f -mtime +%d",base_path,first_path,second_path,pic_timeout);
+		//sprintf(commond,"find %s/%s/%s -type f -mtime +%d",base_path,first_path,second_path,pic_timeout);
+		///xm-workspace/vdc1/data/0F/0E/Cv7XkFihUnWET2XfAAAAAOYmAic66.jpeg
+		sprintf(commond,"ls %s/%s/%s",base_path,first_path,second_path);
 		printf("commond = %s\n",commond);
 		FILE *fp = popen(commond,"r");
 		if(NULL == fp)
@@ -276,10 +279,10 @@ int check_pic_path(char* first_path,char *second_path)
 			second_path = temp_path+1;
 			continue;
 		}
-		char timeout_pic[1024*1024*3]={0,};
+		char timeout_pic[1024*1024*2]={0,};
 		fread(timeout_pic,sizeof(timeout_pic),1,fp);
 		pclose(fp);
-
+	
 		if(strlen(timeout_pic)==0)
 		{
 			second_path = temp_path+1;
@@ -287,9 +290,9 @@ int check_pic_path(char* first_path,char *second_path)
 		}
 
 		//删除游离图片和过期图片
-		delete_pic_from_fastdfs(timeout_pic,first_path);
+		delete_pic_from_fastdfs(timeout_pic,first_path,second_path);
 		second_path = temp_path+1;
-
+		printf("$$$$$$$$$$$second_paht = %s\n",second_path);
 		//每遍历10个目录，就sleep 10s钟
 		if(i%10 == 0)
 		{
@@ -335,7 +338,7 @@ int clean_timeout_pic()
 }
 
 
-int delete_pic_from_fastdfs(char *pic_path,char *first_path)
+int delete_pic_from_fastdfs(char *pic_path,char *first_path,char *second_path)
 {
 	if((NULL == pic_path)||(NULL == first_path))
 	{
@@ -350,9 +353,13 @@ int delete_pic_from_fastdfs(char *pic_path,char *first_path)
 	while(NULL != (temp_path = strstr(pic_path,"\n")))
 	{
 		*temp_path = '\0';
-		printf("####pic path = %s, first_path = %s\n",pic_path,first_path);
-		char *temp_id = strstr(pic_path,first_path);
-		char *cur_file = pic_path;
+		// /xm-workspace/vdc1/data/0F/0E/Cv7XkFihUnWET2XfAAAAAOYmAic66.jpeg
+		//printf("####pic path = %s, first_path = %s\n",pic_path,first_path);
+		//char *temp_id = strstr(pic_path,first_path);
+		char temp_id[128] = {0,};
+		char cur_file[128] = {0,};
+		sprintf(temp_id,"%s/%s/%s",first_path,second_path,pic_path);
+		sprintf(cur_file,"%s/%s",base_path,temp_id);
 		pic_path = temp_path+1;
 		sprintf(fsdf_path,"%s/M00/%s",group_name,temp_id);
 		if ((result = check_pic_redis(fsdf_path,cur_file)) != 0)
@@ -365,8 +372,15 @@ int delete_pic_from_fastdfs(char *pic_path,char *first_path)
 		{
 			continue;
 		}
-		delete_file(fileid, storage_ip);
-		dfs_destroy();
+		if((access(cur_file,F_OK))!=-1)
+		{
+			delete_file(fileid, storage_ip);
+			dfs_destroy();
+		}
+		else
+		{
+			printf("#######file not exists name = %s\n",cur_file);
+		}
 	}
 	return 0;
 }
